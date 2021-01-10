@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(bal) => {
                         let msg = String::from_utf8((&buf[..bal]).to_vec()).unwrap();
                         tokio::spawn(async move {
-                            log(&format!("Got = {} from client", msg)).await.unwrap();
+                            log(&format!("Got = {:?} from client", msg)).await.unwrap();
                         });
                         Some(bal)
                     },
@@ -65,7 +65,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match bytes_array_length {
                     Some(bal) => {
                         if let Err(e) = socket.write_all(&buf[0..bal]).await {
-                            eprintln!("Failed to write to socket; err = {:?}", e);
+                            tokio::spawn(async move {
+                                log(&format!("Failed to write to socket; err = {:?}", e)).await.unwrap();
+                            });
                             return
                         }
                     }
