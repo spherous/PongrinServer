@@ -25,7 +25,7 @@ async fn log(message: &str) -> Result<(), std::io::Error>{
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:1234").await?;
     
-    tokio::spawn(async {
+    tokio::spawn(async move {
         log("PongrinServer Started.").await.unwrap();
     });
 
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let bytes_array_length = match socket.read(&mut buf).await {
                     Ok(bal) if bal == 0 => {
                         tokio::spawn(async move {
-                            log("Client disconnected from server.").await.unwrap();
+                            log(&format!("Client: {:?} disconnected from server.", client)).await.unwrap();
                         });
                         None
                     },
