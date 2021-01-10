@@ -13,7 +13,7 @@ async fn log(message: &str) -> Result<(), std::io::Error>{
         .open("pongrin-log.html")
         .await?;
    
-    let msg = format!("{:?}: {:?}<br>\n", now_str, message);
+    let msg = format!("{}: {}<br>\n", now_str, message);
     file.write_all(msg.as_bytes()).await?;
     
     println!("{}: {}", now_str, message);
