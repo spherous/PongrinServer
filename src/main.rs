@@ -1,64 +1,75 @@
-use std::fs::OpenOptions;
-use std::io::Write;
+use tokio::fs::OpenOptions;
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-fn log(message: &str) {
+async fn log(message: &str) -> Result<(), std::io::Error>{
     let now = chrono::Utc::now();
     let now_str = now.format("%b %-d, %-I:%M").to_string();
 
-    //let mut file = std::fs::File::create("pongrin-log.html").expect("create failed");
-    let mut file = OpenOptions::new().create(true)
-                                     .write(true)
-                                     .append(true)
-                                     .open("pongrin-log.html")
-                                     .expect("create failed");
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open("pongrin-log.html")
+        .await?;
+   
+    let msg = format!("{:?}: {:?}<br>\n", now_str, message);
+    file.write_all(msg.as_bytes()).await?;
+    
+    println!("{}: {}", now_str, message);
 
-    file.write_all(now_str.as_bytes()).expect("write failed");
-    file.write_all(":".as_bytes()).expect("write failed");
-    file.write_all(message.as_bytes()).expect("write failed");
-    file.write_all("<br>\n".as_bytes()).expect("write failed");
-
-    print!("{}:{}\n", now_str, message);
+    Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind("0:1234").await?;
-    log("PongrinServer Started.");
+    let listener = TcpListener::bind("127.0.0.1:1234").await?;
+    
+    tokio::spawn(async {
+        log("PongrinServer Started.").await.unwrap();
+    });
 
     loop {
-        let (mut socket, _) = listener.accept().await?;
+        let (mut socket, client) = listener.accept().await?;
+
+        tokio::spawn(async move {
+            log(&format!("Client connected: {:?}", client)).await.unwrap();
+        });
 
         tokio::spawn(async move {
             let mut buf = [0; 1024];
 
             loop {
-                let n = match socket.read(&mut buf).await {
-                    Ok(n) if n == 0 => {
-                        log("Client disconnected from server.");
-                        return
+                let bytes_array_length = match socket.read(&mut buf).await {
+                    Ok(bal) if bal == 0 => {
+                        tokio::spawn(async move {
+                            log("Client disconnected from server.").await.unwrap();
+                        });
+                        None
                     },
-                    Ok(n) => 
-                    {
-                        let msg = String::from_utf8((&buf[..n]).to_vec()).unwrap();
-
-                        let str1: &str = "Got = ";
-                        let str2: &str = &msg;
-                        let str3: &str = " from client.";
-                        let _str4 = format!("{}{}{}", str1, str2, str3);
-                        log(&_str4);
-                        n
+                    Ok(bal) => {
+                        let msg = String::from_utf8((&buf[..bal]).to_vec()).unwrap();
+                        tokio::spawn(async move {
+                            log(&format!("Got = {} from client", msg)).await.unwrap();
+                        });
+                        Some(bal)
                     },
                     Err(e) => {
-                        eprintln!("Failed to read from the socket; err = {:?}", e);
-                        return
+                        tokio::spawn(async move {
+                            log(&format!("Failed to read from the socket; err = {:?}", e)).await.unwrap();
+                        });
+                        None
                     }
                 };
 
-                if let Err(e) = socket.write_all(&buf[0..n]).await {
-                    eprintln!("Failed to write to socket; err = {:?}", e);
-                    return;
+                match bytes_array_length {
+                    Some(bal) => {
+                        if let Err(e) = socket.write_all(&buf[0..bal]).await {
+                            eprintln!("Failed to write to socket; err = {:?}", e);
+                            return
+                        }
+                    }
+                    None => return
                 }
             }
         });
