@@ -24,11 +24,13 @@ fn log(message: &str) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //let listener = TcpListener::bind("142.11.199.204:1234").await?;
     let listener = TcpListener::bind("0:1234").await?;
     log("PongrinServer Started.");
 
     loop {
-        let (mut socket, _) = listener.accept().await?;
+        let (mut socket, client) = listener.accept().await.unwrap();
+        log(&client.to_string());
 
         tokio::spawn(async move {
             let mut buf = [0; 1024];
