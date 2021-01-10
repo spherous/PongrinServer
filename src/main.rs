@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let (mut socket, client) = listener.accept().await.unwrap();
-        log(&client.to_string());
+        log(&format!("Client connected to server: {}", &client.to_string()));
 
         tokio::spawn(async move {
             let mut buf = [0; 1024];
@@ -38,18 +38,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 let n = match socket.read(&mut buf).await {
                     Ok(n) if n == 0 => {
-                        log("Client disconnected from server.");
+                        log(&format!("Client disconnected from server: {}", &client.to_string()));
                         return
                     },
                     Ok(n) => 
                     {
                         let msg = String::from_utf8((&buf[..n]).to_vec()).unwrap();
-
-                        let str1: &str = "Got = ";
-                        let str2: &str = &msg;
-                        let str3: &str = " from client.";
-                        let _str4 = format!("{}{}{}", str1, str2, str3);
-                        log(&_str4);
+                        log(&format!("Got = {} from client.", &msg));
                         n
                     },
                     Err(e) => {
